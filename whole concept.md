@@ -44,7 +44,7 @@ Then it sends:
 ```js
 POST /get-ultra-key
 {
-  authKey: "SpartanMD",
+  authKey: "redfox-coders",
   fingerprint: "c1184562deba...",
   token: sha256(fingerprint)
 }

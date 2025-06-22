@@ -45,31 +45,32 @@ function decryptUltraLock(base64, key, iv) {
 }
 
 (async () => {
-    try {
-        const fingerprint = generateFingerprint();
-        const token = crypto.createHash('sha256').update(fingerprint).digest('hex');
+  try {
+    const fingerprint = generateFingerprint();
+    const token = crypto.createHash('sha256').update(fingerprint).digest('hex');
+    const authKey = 'redfox-coders'; // your internal key
 
-        const authKey = 'redfox-coders'; // Replace with your internal authKey
+    const urlRes = await fetch('https://api.rfc-redfox.com/generate-locked-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authKey, fingerprint, token })
+    });
 
-        const urlRes = await fetch('https://api.rfc-redfox.com/generate-locked-url', { 
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ authKey, fingerprint, token })
-        });
+    if (!urlRes.ok) throw new Error('❌ URL generation failed. This client is not authorized.');
 
-        if (!urlRes.ok) throw new Error('❌ URL generation failed This Client is not authorized to run this application');
-        const { lockUrl } = await urlRes.json();
-        const lockRes = await fetch(lockUrl);
+    const { lockUrl, key, iv } = await urlRes.json(); // ✅ get all at once
 
-        if (!lockRes.ok) throw new Error('❌ Failed to fetch Ultra Lock');
-        const { key, iv } = await urlRes.json();
+    const lockRes = await fetch(lockUrl);
+    if (!lockRes.ok) throw new Error('❌ Failed to fetch Ultra Lock');
 
-        const encrypted = await lockRes.text();
-        const decrypted = decryptUltraLock(encrypted, key, iv);
-        eval(decrypted); // 🔥 Ultra Lock(your application) executed in memory
+    const encrypted = await lockRes.text();
+    const decrypted = decryptUltraLock(encrypted, key, iv);
 
-    } catch (err) {
-        console.error('[RFC Secure-Core] ❌ Startup failed:', err.message);
-        process.exit(1);
-    }
+    eval(decrypted); // 🔥 Ultra Lock (bot core) executed in memory
+
+  } catch (err) {
+    console.error('[RFC Secure-Core] ❌ Startup failed:', err.message);
+    process.exit(1);
+  }
 })();
+

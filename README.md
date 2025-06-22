@@ -56,18 +56,6 @@ Hide your logic. Confuse the leakers. Stay in control. ✅
 
 ---
 
-## 📁 Project Structure will look like this after publishing
-
-| File                         | Purpose                           |
-|------------------------------|------------------------------------|
-| `start.js`                   | Main secure loader                |
-| `ultra-lock.example.js`      | Your real private source logic     |
-| `encrypt-lock.js`            | Encrypt your lock file before deploy |
-| `server/get-ultra-key.js`    | Backend API to deliver keys       |
-| `utils/fingerprint.js`       | Gathers fingerprint data          |
-
----
-
 ## 🛡️ Real-World Use Cases
 
 - WhatsApp bots (NOIEYS-X)

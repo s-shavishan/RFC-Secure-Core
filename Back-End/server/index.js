@@ -1,63 +1,77 @@
-// this is A Simple example of a Node.js server
+/*
+generate-locked-url.js
+
+very simple script to generate a locked URL for secure access to a file
+- one time access -
+*/
 import express from 'express';
-import cors from 'cors';
-import bodyParser from 'body-parser';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-const app = express();
+const router = express.Router();
 
-// === Config variables ===
-const AUTH_KEY = 'SpartanMD'; // your master secret
-const KEY = 'RFC-OnlyExec-Key!'; // AES key
-const IV = '1234567890123456';  // 16-byte IV
-const VALID_FINGERPRINTS_PATH = path.join(__dirname, 'valid-fingerprints.txt');
+// Load valid fingerprints
+const VALID_FINGERPRINTS = fs.readFileSync('./fingerprints.txt', 'utf-8')
+  .split('\n')
+  .map(f => f.trim())
+  .filter(Boolean);
 
-// === In-memory one-time token checker ===
-const usedTokens = new Set();
+const tempUrlStore = new Map();
 
-// === Middleware ===
-app.use(cors());
-app.use(bodyParser.json());
+function generateToken() {
+  return crypto.randomBytes(16).toString('hex');
+}
 
-app.post('/get-ultra-key', (req, res) => {
-  const { authKey, fingerprint, token } = req.body;
+function getLockKey() {
+  return process.env.LOCK_KEY || 'RFC_SUPER_KEY';
+}
 
-  if (authKey !== AUTH_KEY) {
-    return res.status(403).json({ error: 'Invalid auth key' });
-  }
+function getIV() {
+  return process.env.LOCK_IV || 'RedFoxSecureInitV'; // 16 chars
+}
 
-  // One-time token enforcement
-  if (usedTokens.has(token)) {
-    return res.status(403).json({ error: 'Token already used' });
-  }
+router.post('/generate-locked-url', (req, res) => {
+  const { fingerprint, token, authKey } = req.body;
 
-  // Token expected to match fingerprint
-  const expected = crypto.createHash('sha256').update(fingerprint).digest('hex');
-  if (token !== expected) {
-    return res.status(403).json({ error: 'Invalid token' });
-  }
+  if (!fingerprint || !token || !authKey)
+    return res.status(400).json({ error: 'Missing required fields' });
 
-  // Fingerprint whitelist
-  const allowed = fs.readFileSync(VALID_FINGERPRINTS_PATH, 'utf-8')
-                    .split('\n').filter(Boolean);
-  if (!allowed.includes(fingerprint)) {
-    return res.status(403).json({ error: 'Fingerprint not authorized' });
-  }
+  const expectedToken = crypto.createHash('sha256').update(fingerprint).digest('hex');
+  if (token !== expectedToken)
+    return res.status(401).json({ error: 'Invalid token' });
 
-  // OK — mark this token used
-  usedTokens.add(token);
+  if (authKey !== 'redfox-coders')
+    return res.status(401).json({ error: 'Invalid authKey' });
 
-  // Deliver key/iv
-  return res.json({ key: KEY, iv: IV });
+  if (!VALID_FINGERPRINTS.includes(fingerprint))
+    return res.status(403).json({ error: 'Fingerprint not approved' });
+
+  const oneTimeId = generateToken();
+  const expiresAt = Date.now() + 1000 * 60 * 2; // 2 minutes expiry
+  tempUrlStore.set(oneTimeId, { expiresAt });
+
+  const lockUrl = `https://cdn.rfc-redfox.com/secure-access/${oneTimeId}`;
+
+  return res.json({ lockUrl, key: getLockKey(), iv: getIV() });
 });
 
-app.get('/ultra-lock.encrypted.js', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.type('application/javascript');
-  fs.createReadStream(path.join(__dirname, 'ultra-lock.encrypted.js')).pipe(res);
+router.get('/secure-access/:token', (req, res) => {
+  const { token } = req.params;
+  const entry = tempUrlStore.get(token);
+
+  if (!entry) return res.status(404).send('Link expired or invalid');
+  if (Date.now() > entry.expiresAt) {
+    tempUrlStore.delete(token);
+    return res.status(403).send('Link expired');
+  }
+
+  tempUrlStore.delete(token); // one-time use
+
+  const filePath = path.join(process.cwd(), 'assets', 'ultra-lock.encrypted.js');
+  if (!fs.existsSync(filePath)) return res.status(500).send('Lock file missing');
+
+  return res.sendFile(filePath);
 });
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`🔐 RFC-Server live on port ${PORT}`));
+export default router;
