@@ -73,20 +73,13 @@ cd RFC-Secure-Core
 npm install
 ```
 ## 🧪 Testing It
-```bash
 
 ******
 - You need a server for this project hosted on the network
 -Join our channel to learn more
+
+use provided example code and build your own enhanced version bro~!
 ******
-
-# 1. Write your real logic in ultra-lock.example.js
-# 2. Run encryption
-node encrypt-lock.js
-
-# 3. Launch secure loader
-node start.js
-```
 
 ---
 
